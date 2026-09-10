@@ -3,8 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
 
 jobs:
   build:
@@ -15,35 +14,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.8 x64
         uses: actions/setup-python@v5
         with:
           python-version: '3.8'
+          architecture: 'x64'
+          cache: 'pip'
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
 
       - name: Download face recognition models
         run: python download_models.py
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller==5.13.2
-
-      - name: Build EXE
-        run: pyinstaller --noconfirm --onefile --windowed --name PhotoArchiveCatalog --add-data "models;models" main.py
-
-      - name: Check EXE
-        shell: powershell
+      - name: Build PhotoArchiveCatalog.exe
+        shell: cmd
         run: |
-          if (!(Test-Path "dist\PhotoArchiveCatalog.exe")) {
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name PhotoArchiveCatalog --add-data "models;models" --hidden-import cv2 --hidden-import openpyxl main.py
+
+      - name: Verify EXE
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist/PhotoArchiveCatalog.exe")) {
             throw "PhotoArchiveCatalog.exe was not created"
           }
+          Get-Item "dist/PhotoArchiveCatalog.exe" | Format-List Name,Length,FullName
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: PhotoArchiveCatalog-Windows
           path: dist/PhotoArchiveCatalog.exe
+          if-no-files-found: error
+          retention-days: 30

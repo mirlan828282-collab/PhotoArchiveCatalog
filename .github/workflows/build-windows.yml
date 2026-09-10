@@ -1,1 +1,49 @@
+name: Build Windows EXE
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download face recognition models
+        run: python download_models.py
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller==5.13.2
+
+      - name: Build EXE
+        run: pyinstaller --noconfirm --onefile --windowed --name PhotoArchiveCatalog --add-data "models;models" main.py
+
+      - name: Check EXE
+        shell: powershell
+        run: |
+          if (!(Test-Path "dist\PhotoArchiveCatalog.exe")) {
+            throw "PhotoArchiveCatalog.exe was not created"
+          }
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoArchiveCatalog-Windows
+          path: dist/PhotoArchiveCatalog.exe
